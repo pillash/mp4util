@@ -15,6 +15,8 @@ func Duration(filepath string) (int, error) {
 		return 0, err
 	}
 
+	// start searching for the mvhd atom inside the moov atom.
+	// The first child atom of the moov atom starts 8 bytes after the start of the moov atom.
 	mvhdAtomPosition, mvhdAtomLength, err := findAtom(moovAtomPosition+8, "mvhd", file)
 	if err != nil {
 		return 0, err

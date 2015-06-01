@@ -1,33 +1,30 @@
 package mp4util
 
 import (
-	"fmt"
 	"os"
 )
 
-func Duration(filepath string) int {
+// Returns the duration, in seconds, of the mp4 file at the provided filepath
+func Duration(filepath string) (int, error) {
 	file, _ := os.Open(filepath)
 	defer file.Close()
 
 	moovAtomPosition, _, err := findAtom(0, "moov", file)
 	if err != nil {
-		fmt.Printf("error finding moov atom: %q\n", err)
-		return 0
+		return 0, err
 	}
-	//fmt.Printf("moov atom pos: %d\n", moovAtomPosition)
 
 	mvhdAtomPosition, mvhdAtomLength, err := findAtom(moovAtomPosition+8, "mvhd", file)
 	if err != nil {
-		fmt.Printf("error finding mvhd atom: %q\n", err)
+		return 0, err
 	}
-	//fmt.Printf("mvhd atom pos: %d %d\n", mvhdAtomPosition, mvhdAtomLength)
 
 	duration, err := durationFromMvhdAtom(mvhdAtomPosition, mvhdAtomLength, file)
 	if err != nil {
-		fmt.Printf("error reading duration: %q\n", err)
-		return 0
+		return 0, err
 	}
-	return duration
+
+	return duration, nil
 }
 
 func findAtom(startPos int64, atomName string, file *os.File) (int64, int64, error) {
@@ -38,13 +35,10 @@ func findAtom(startPos int64, atomName string, file *os.File) (int64, int64, err
 			return 0, 0, err
 		}
 
-		lengthOfAtom := int64(ConvertBytesToInt(buffer[0:4]))
-		//fmt.Printf("length of atom: %d\n", lengthOfAtom)
+		lengthOfAtom := int64(convertBytesToInt(buffer[0:4]))
 
 		name := string(buffer[4:])
-		//fmt.Printf("atom name: %s\n", atomName)
 		if name == atomName {
-			//fmt.Printf("found moov atom at %d\n", currentPosition)
 			return startPos, lengthOfAtom, nil
 		}
 
@@ -60,12 +54,12 @@ func durationFromMvhdAtom(mvhdStart int64, mvhdLength int64, file *os.File) (int
 		return 0, err
 	}
 
-	timescale := ConvertBytesToInt(buffer[0:4])
-	durationInTimeScale := ConvertBytesToInt(buffer[4:])
+	timescale := convertBytesToInt(buffer[0:4])
+	durationInTimeScale := convertBytesToInt(buffer[4:])
 	return int(durationInTimeScale) / int(timescale), nil
 }
 
-func ConvertBytesToInt(buf []byte) int {
+func convertBytesToInt(buf []byte) int {
 	res := 0
 	for i := len(buf) - 1; i >= 0; i-- {
 		b := int(buf[i])
@@ -73,10 +67,4 @@ func ConvertBytesToInt(buf []byte) int {
 		res += b << shift
 	}
 	return res
-}
-
-func ConvertSecondsToMinutes(seconds int) (int, int) {
-	minutes := seconds / 60
-	secsPart := seconds % 60
-	return minutes, secsPart
 }
